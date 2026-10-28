@@ -1,0 +1,19 @@
+{
+  "name": "splitpilot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-powered group expense parsing, fewest-payments settlement, and PayPal sandbox checkout",
+  "license": "MIT",
+  "workspaces": ["client", "server"],
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c blue,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w server && npm run build -w client",
+    "test": "npm run test -w server && npm run test -w client",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w client",
+    "db:push": "npm run db:push -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.0"
+  }
+}

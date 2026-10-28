@@ -1,0 +1,79 @@
+// SQLite via Prisma. Money is ALWAYS integer minor units (cents) so balances
+// add up exactly; the API converts to decimal strings only at the PayPal boundary.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Group {
+  id        String    @id @default(cuid())
+  name      String
+  currency  String // ISO 4217, upper case
+  createdAt DateTime  @default(now())
+  members   Member[]
+  expenses  Expense[]
+  payments  Payment[]
+}
+
+// A person in a group. No accounts for the demo; a name is enough.
+model Member {
+  id          String         @id @default(cuid())
+  groupId     String
+  name        String
+  group       Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  paid        Expense[]      @relation("ExpensePayer")
+  shares      ExpenseShare[]
+  sent        Payment[]      @relation("PaymentFrom")
+  received    Payment[]      @relation("PaymentTo")
+
+  @@unique([groupId, name])
+}
+
+model Expense {
+  id          String         @id @default(cuid())
+  groupId     String
+  description String
+  totalAmount Int // minor units
+  currency    String
+  payerId     String
+  sourceText  String? // the chat/receipt text it was parsed from
+  createdAt   DateTime       @default(now())
+  group       Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  payer       Member         @relation("ExpensePayer", fields: [payerId], references: [id])
+  shares      ExpenseShare[]
+}
+
+// Who owes how much of an expense. The shares of one expense sum to totalAmount.
+model ExpenseShare {
+  id              String  @id @default(cuid())
+  expenseId       String
+  memberId        String
+  allocatedAmount Int // minor units
+  expense         Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  member          Member  @relation(fields: [memberId], references: [id])
+
+  @@unique([expenseId, memberId])
+}
+
+// One settlement transfer. status: PENDING | AWAITING_APPROVAL | PAID | NEEDS_REVIEW | FAILED
+model Payment {
+  id              String    @id @default(cuid())
+  groupId         String
+  fromMemberId    String
+  toMemberId      String
+  amount          Int // minor units
+  currency        String
+  status          String    @default("PENDING")
+  paypalOrderId   String?   @unique
+  paypalCaptureId String?
+  createdAt       DateTime  @default(now())
+  paidAt          DateTime?
+  group           Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  from            Member    @relation("PaymentFrom", fields: [fromMemberId], references: [id])
+  to              Member    @relation("PaymentTo", fields: [toMemberId], references: [id])
+}
